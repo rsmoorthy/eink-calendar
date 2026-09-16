@@ -1,0 +1,11 @@
+#!/bin/bash
+
+PORT=/dev/ttyACM0
+MODULE=epd4in2_V2
+
+set -e
+
+cd ..
+arduino-cli compile -p $PORT --fqbn esp32:esp32:esp32c6:CDCOnBoot=cdc $MODULE
+arduino-cli upload -p $PORT --fqbn esp32:esp32:esp32c6:CDCOnBoot=cdc $MODULE
+minicom -D /dev/ttyACM0

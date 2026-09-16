@@ -1,0 +1,12 @@
+Waveshare                        ESP32-C6 
+Display Pin	   Function	         Super Mini GPIO	   Why This is Optimal
+=============  ===========       ===============    ===================
+VCC	           Power (3.3V)	     3V3	               Power from board regulator
+GND	           Ground	           GND	               Common ground
+DIN	           SPI MOSI (Data)	 GPIO 5	             Hardware MOSI pin - fastest data transfer
+CLK	           SPI Clock	       GPIO 7 (6)          Hardware SCK pin - stable clock signal
+CS	           Chip Select	     GPIO 4	             Hardware CS pin - clean chip selection
+DC	           Data/Command	     GPIO 3	             General purpose I/O (low-power domain)
+RST	           Display Reset	   GPIO 2	             General purpose I/O (low-power domain)
+BUSY	         Display Status	   GPIO 1	             General purpose I/O (low-power domain)
+
