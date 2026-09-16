@@ -1,0 +1,92 @@
+{% extends "base.html" %}
+{% block title %}Images{% endblock %}
+{% block content %}
+<h1>Images</h1>
+
+<p class="hint">
+  Upload any image to use as the day image or the additional image. Files are
+  stored in the layout's image folder and referenced by name from the
+  <a href="{{ url_for('home') }}">Home</a> page's Contents section. Largest side
+  allowed: {{ max_dimension }}px.
+</p>
+
+<section class="panel">
+  <h2>Upload</h2>
+  <form method="post" enctype="multipart/form-data" class="upload-form">
+    <div class="field">
+      <label for="image">Image file</label>
+      <input type="file" id="image" name="image" accept="image/*" required>
+    </div>
+    <div class="field">
+      <label for="name">Save as (optional)</label>
+      <input type="text" id="name" name="name"
+             placeholder="e.g. deepavali.png - leave blank to keep the uploaded name">
+    </div>
+    <div class="form-actions">
+      <label class="checkbox">
+        <input type="checkbox" name="overwrite" value="1" checked>
+        Replace the file if it already exists
+      </label>
+      <button type="submit" name="action" value="upload">Upload</button>
+    </div>
+  </form>
+</section>
+
+<section class="panel">
+  <h2>Existing images ({{ assets|length }})</h2>
+  {% if assets %}
+  <table class="assets">
+    <thead>
+      <tr>
+        <th>Preview</th>
+        <th>Name</th>
+        <th>Resolution</th>
+        <th>Size</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for asset in assets %}
+      <tr>
+        <td class="thumb-cell">
+          {% if asset.width and asset.height %}
+            <img src="{{ url_for('upload_thumb', name=asset.name) }}"
+                 alt="{{ asset.name }}" class="thumb">
+          {% else %}
+            <span class="hint">unreadable</span>
+          {% endif %}
+        </td>
+        <td>
+          <code>{{ asset.name }}</code>
+          {% if asset.protected %}<span class="badge">default</span>{% endif %}
+        </td>
+        <td>{{ asset.resolution }}</td>
+        <td>{{ (asset.size_bytes / 1024) | round(1) }} KB</td>
+        <td class="actions">
+          <form method="post" class="inline">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="name" value="{{ asset.name }}">
+            {% if asset.protected %}
+              <button type="button" class="secondary" disabled
+                      title="Used by the default layout; cannot be deleted">Delete</button>
+            {% else %}
+              <button type="submit" class="danger"
+                      onclick="return confirm('Delete {{ asset.name }}?');">Delete</button>
+            {% endif %}
+          </form>
+        </td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% else %}
+  <p class="hint">No images found.</p>
+  {% endif %}
+
+  <p class="hint">
+    These are the default day images and cannot be deleted:
+    {% for name in protected %}<code>{{ name }}.png</code>{% if not loop.last %}, {% endif %}{% endfor %}.
+    You can replace them by uploading a file with the same name.
+  </p>
+</section>
+{% endblock %}

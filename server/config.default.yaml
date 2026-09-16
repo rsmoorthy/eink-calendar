@@ -1,0 +1,161 @@
+# Default layout configuration for the e-ink calendar image renderer.
+#
+# All coordinates are in pixels on the 400x300 (landscape) display canvas.
+# The origin (0, 0) is the top-left corner, x grows right, y grows down.
+#
+# This file is the source of truth for layout. The web /config page edits a
+# copy stored separately (path set by EINK_CONFIG_PATH, e.g. /data/config.yaml).
+# Delete that copy, or use "Reset to defaults" on the page, to fall back here.
+#
+# The copy is merged onto these defaults one SECTION at a time: a section you
+# define replaces that whole section, and a section you leave out is taken from
+# here. So a key you delete or comment out in your copy stays deleted; it is not
+# filled back in from this file, and neither is a whole element inside a section
+# you have defined.
+#
+# SKIPPING ELEMENTS
+# Any element below can be hidden in two ways:
+#   - set "font_size: 0"  (for text elements)
+#   - set either "x: -1" or "y: -1"
+# The element is then not drawn at all. That is the supported way to switch a
+# field off without deleting its other settings.
+#
+# FONTS
+# "fonts" maps a name you choose to a font file. Any text element can pick one
+# with its own "font" setting, e.g. "font: latin_bold"; an element without one
+# uses "latin". Paths resolve relative to server/ unless absolute.
+#
+# A name whose file is missing is an error, not a silent fallback, so a typo
+# cannot quietly render the wrong face. To add a font, drop the .ttf in
+# server/fonts/ and add a name for it here (then rebuild the container).
+#
+# Tamil needs a Tamil face: give the tamil_month and tamil_date elements
+# "font: tamil", or the glyphs render as boxes.
+#
+# Font sizes are the nominal pixel size passed to PIL.
+
+canvas:
+  width: 400
+  height: 300
+
+fonts:
+  latin: fonts/NotoSans-Regular.ttf
+  latin_bold: fonts/NotoSans-Bold.ttf
+  tamil: fonts/NotoSansTamil-Regular.ttf
+  tamil_bold: fonts/NotoSansTamil-Bold.ttf
+  dejavu: fonts/DejaVuSans.ttf
+  dejavu_bold: fonts/DejaVuSans-Bold.ttf
+
+# ---------------------------------------------------------------- Line 1
+# Big date number, month abbreviation and weekday, plus a 64x64 day image.
+line1:
+  date:
+    x: 60
+    y: 60
+    font_size: 64
+  month:
+    x: 160
+    y: 78
+    font_size: 32
+  weekday:
+    x: 250
+    y: 78
+    font_size: 32
+  # The day image. Its file name comes from the day's "day_image" field
+  # (defaults to the weekday name, e.g. sun.png) and can be overridden in the
+  # web UI. Give both width and height, or just one of them to scale while
+  # preserving the aspect ratio.
+  day_image:
+    x: 334
+    y: 2
+    width: 64
+    height: 64
+
+# ---------------------------------------------------------------- Line 2
+# Lunar tithi name, moon phase image, and paksha.
+#
+# Positions are chosen against the longest values the source produces
+# ("Shraddhabhava", "Krishna") at this font size, so nothing overlaps the moon
+# or runs off the 400px canvas. Verify with server/check_layout.py before
+# changing font sizes here.
+line2:
+  y: 148
+  tithi:
+    x: 10
+    font_size: 22
+  moon_image:
+    x: 196
+    y: 146
+    radius: 16
+  paksha:
+    x: 218
+    font_size: 22
+
+# ---------------------------------------------------------------- Line 3
+# Masa, tithi, nakshatra, then Tamil month and Tamil date on the row below.
+# Font size is 18 rather than 20: at 20 the three Latin values plus their gaps
+# exceed the available width.
+line3:
+  y: 190
+  masa:
+    x: 8
+    font_size: 18
+  tithi:
+    x: 118
+    font_size: 18
+  nakshatra:
+    x: 258
+    font_size: 18
+  tamil_month:
+    x: 10
+    y: 228
+    font_size: 24
+    # Tamil script must use a Tamil face; it is not special-cased by field name.
+    font: tamil
+  tamil_date:
+    x: 168
+    y: 228
+    font_size: 24
+    font: tamil
+
+# ---------------------------------------------------------------- Line 4
+# Free-form custom text entered by the admin in the web UI. Wrapped to fit
+# within "max_width" using the given font size.
+line4:
+  x: 20
+  y: 258
+  font_size: 20
+  min_font_size: 12
+  max_width: 360
+  max_y: 300
+  line_height: 20
+
+# ----------------------------------------------------------- Additional image
+# A second image below line4, next to the custom text. Its file name comes from
+# the day's "addl_image" field and is empty by default, so nothing is drawn
+# unless an admin sets one. Give only one of width/height to preserve the
+# aspect ratio of the source file.
+addl_image:
+  x: 300
+  y: 232
+  width: 64
+  height: 64
+
+# ---------------------------------------------------------------- Dividers
+# Horizontal separator lines. Any number may be listed; each is drawn across the
+# canvas at "y". A divider with y: -1 is skipped, and an empty list draws none.
+# "x_start"/"x_end" optionally limit the horizontal extent.
+dividers:
+  - y: -1
+    thickness: 1
+  - y: -1
+    thickness: 1
+
+# Marker drawn when the panchanga source could not be reached for this day, so
+# a failed scrape is distinguishable from a day with genuinely empty data. The
+# displayed values themselves fall back to em dashes.
+scrape_failed_marker:
+  text: "no panchanga"
+  x: 258
+  y: 285
+  font_size: 14

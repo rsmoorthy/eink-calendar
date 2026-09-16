@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% block title %}Configuration{% endblock %}
+{% block content %}
+<h1>Layout configuration</h1>
+
+<p class="hint">
+  These values control exactly where everything is drawn on the 400&times;300 canvas.
+  Coordinates are pixels from the top-left. This is ordinary YAML: delete a key, or
+  comment it out with <code>#</code>, and it stays deleted. What is shown is the
+  saved file as you wrote it, comments and key order included; <b>Reset to
+  defaults</b> deletes <code>{{ config_path }}</code> and restores the shipped
+  defaults listed below.
+</p>
+
+<p class="hint">
+  An image needs at least one of <code>width</code> or <code>height</code>; with
+  neither, it is drawn at its own pixel size and may land off-canvas. Give both to
+  force an exact size, or just one to keep the file's aspect ratio &mdash; a
+  200&times;50 logo at <code>width: 64</code> is drawn 64&times;16. A side of
+  <code>0</code> or <code>-1</code> also means "derive this one".
+</p>
+
+{% if error %}
+  <p class="flash error">{{ error }}</p>
+{% endif %}
+
+<form method="post" class="config-form">
+  <textarea name="config_yaml" rows="34" spellcheck="false">{{ config_yaml }}</textarea>
+  <div class="form-actions">
+    <button type="submit" name="action" value="save">Save configuration</button>
+    <button type="submit" name="action" value="reset" class="secondary"
+            onclick="return confirm('Reset to the shipped defaults?');">Reset to defaults</button>
+  </div>
+</form>
+
+<details class="defaults">
+  <summary>Shipped defaults (read-only)</summary>
+  <pre>{{ defaults_yaml }}</pre>
+</details>
+{% endblock %}

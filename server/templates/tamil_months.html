@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Tamil months{% endblock %}
+{% block content %}
+<h1>Tamil months</h1>
+
+<p class="hint">
+  Tamil months begin at solar ingress (Sankranti), which drifts by a day or two
+  from year to year, so these start dates are maintained by hand. One entry per
+  line: <code>YYYY-MM-DD,EnglishName,TamilName</code>. Dates outside this table
+  render a dash for the Tamil month and date.
+</p>
+
+<form method="post">
+  <textarea name="tamil_months" rows="26" spellcheck="false">{{ tamil_months }}</textarea>
+  <div class="form-actions">
+    <button type="submit">Save Tamil months</button>
+  </div>
+</form>
+
+<p class="hint">
+  Note the final entry: dates after the last start date are covered by the last
+  month until the next Sankranti is added. Extend this table before the end of
+  the last year listed to avoid dashes.
+</p>
+{% endblock %}

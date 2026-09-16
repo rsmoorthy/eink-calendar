@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% block title %}Calendar · {{ selected.isoformat() }}{% endblock %}
+{% block content %}
+
+<h1>{{ month_names[month.month] }} {{ month.year }}</h1>
+
+<!-- Row 1: calendar and image side by side on wide screens, stacked on narrow. -->
+<div class="row row-top">
+  <section class="panel calendar-panel">
+    <table class="calendar">
+      <thead>
+        <tr><th>Mon</th><th>Tue</th><th>Wed</th><th>Thu</th><th>Fri</th><th>Sat</th><th>Sun</th></tr>
+      </thead>
+      <tbody>
+        {% for week in month.weeks %}
+        <tr>
+          {% for day in week %}
+            {% if day is none %}
+              <td class="empty"></td>
+            {% else %}
+              <td class="{{ 'selected' if day == selected else '' }} {{ 'today' if day == today else '' }}">
+                <a href="{{ url_for('home', date=day.isoformat()) }}">{{ day.day }}</a>
+              </td>
+            {% endif %}
+          {% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    <div class="calendar-actions">
+      <a class="button" href="{{ url_for('home', date=prev_month.isoformat()) }}">&larr; Prev month</a>
+      <a class="button" href="{{ url_for('home', date=next_month.isoformat()) }}">Next month &rarr;</a>
+      <form method="post" action="{{ url_for('refresh_month') }}" class="inline">
+        <input type="hidden" name="date" value="{{ selected.isoformat() }}">
+        <button type="submit" class="secondary">Refresh whole month</button>
+      </form>
+    </div>
+  </section>
+
+  <section class="panel image-panel">
+    <h2>{{ selected.isoformat() }}</h2>
+    {% if content and content.has_bitmap %}
+      <img class="preview" src="{{ url_for('image', day=selected.isoformat()) }}?v={{ content.checksum }}"
+           alt="Calendar image for {{ selected.isoformat() }}" width="400" height="300">
+      <p class="meta">
+        checksum <code>{{ content.checksum }}</code><br>
+        rendered {{ content.rendered_at or 'unknown' }}
+      </p>
+    {% else %}
+      <div class="placeholder">No image generated yet</div>
+    {% endif %}
+    <form method="post" action="{{ url_for('generate', day=selected.isoformat()) }}">
+      <button type="submit">{{ 'Regenerate image' if content and content.has_bitmap else 'Generate image' }}</button>
+    </form>
+  </section>
+</div>
+
+<!-- Row 2: editable fields for the selected day. -->
+<section class="panel fields-panel">
+  <h2>Contents</h2>
+  {% if content and not content.panchanga_ok %}
+    <p class="flash error">
+      Panchanga could not be fetched for this day, so affected values show a dash.
+    </p>
+  {% endif %}
+
+  <form method="post" action="{{ url_for('save_content', day=selected.isoformat()) }}">
+    <table class="fields">
+      {% for field in fields %}
+      <tr>
+        <th><label for="f-{{ field }}">{{ labels[field] }}</label></th>
+        <td>
+          {% if field == 'custom_text' %}
+            <textarea id="f-{{ field }}" name="{{ field }}" rows="2"
+                      placeholder="e.g. Happy Birthday Ravi">{{ content[field] if content else '' }}</textarea>
+          {% elif field in ('day_image', 'addl_image') %}
+            {# Offer the uploaded images, but allow any name to be typed too. #}
+            <input id="f-{{ field }}" type="text" name="{{ field }}" list="image-names"
+                   placeholder="{{ 'blank = weekday image (sun, mon, ...)' if field == 'day_image' else 'blank = no image' }}"
+                   value="{{ content[field] if content and content[field] is not none else '' }}">
+          {% else %}
+            <input id="f-{{ field }}" type="text" name="{{ field }}"
+                   value="{{ content[field] if content and content[field] is not none else '' }}">
+          {% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      <tr>
+        <th>Panchanga source</th>
+        <td class="hint">{{ content.tithi_source if content and content.tithi_source else '—' }}</td>
+      </tr>
+    </table>
+
+    {# Shared suggestion list for both image fields. #}
+    <datalist id="image-names">
+      {% for asset in image_names %}<option value="{{ asset }}"></option>{% endfor %}
+    </datalist>
+
+    <div class="form-actions">
+      <label class="checkbox">
+        <input type="checkbox" name="regenerate" value="1" checked>
+        Regenerate image after saving
+      </label>
+      <button type="submit">Save</button>
+    </div>
+  </form>
+
+  <form method="post" action="{{ url_for('refresh', day=selected.isoformat()) }}" class="inline">
+    <button type="submit" class="secondary">Re-fetch panchanga</button>
+  </form>
+</section>
+
+{% endblock %}

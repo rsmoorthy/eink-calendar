@@ -1,0 +1,45 @@
+#!/bin/bash
+#
+# Compile, upload and monitor the calendar firmware.
+#
+#   ./esp32/run              compile, upload, then open the serial monitor
+#   ./esp32/run compile      compile only
+#   ./esp32/run upload       upload only
+#   ./esp32/run monitor      serial monitor only
+#
+# Override the port with: PORT=/dev/ttyUSB0 ./esp32/run
+
+set -e
+
+PORT="${PORT:-/dev/ttyACM0}"
+FQBN="${FQBN:-esp32:esp32:esp32c6:CDCOnBoot=cdc}"
+SKETCH_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/calendar"
+ACTION="${1:-all}"
+
+compile() {
+  echo "Compiling $SKETCH_DIR for $FQBN"
+  arduino-cli compile -p "$PORT" --fqbn "$FQBN" "$SKETCH_DIR"
+}
+
+upload() {
+  echo "Uploading to $PORT"
+  arduino-cli upload -p "$PORT" --fqbn "$FQBN" "$SKETCH_DIR"
+}
+
+monitor() {
+  # 115200 matches SERIAL_BAUD in config.h.
+  if command -v minicom >/dev/null 2>&1; then
+    minicom -D "$PORT" -b 115200
+  else
+    echo "minicom not found; using arduino-cli monitor instead."
+    arduino-cli monitor -p "$PORT" --config baudrate=115200
+  fi
+}
+
+case "$ACTION" in
+  compile) compile ;;
+  upload)  upload ;;
+  monitor) monitor ;;
+  all)     compile; upload; monitor ;;
+  *)       echo "Usage: $0 [all|compile|upload|monitor]" >&2; exit 2 ;;
+esac

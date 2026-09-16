@@ -1,0 +1,297 @@
+/* Minimal, dependency-free styling. The admin UI is used rarely and on a phone
+   as often as a desktop, so the layout is a single column by default and splits
+   into two columns only when there is room. */
+
+:root {
+  --bg: #f6f6f4;
+  --panel: #ffffff;
+  --ink: #1c1c1c;
+  --muted: #6b6b6b;
+  --line: #d8d8d4;
+  --accent: #1f5f8b;
+  --ok: #1d6b3a;
+  --error: #a3272b;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font: 15px/1.5 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: var(--panel);
+  border-bottom: 1px solid var(--line);
+}
+
+.brand { font-weight: 600; color: var(--ink); text-decoration: none; }
+.topbar nav { display: flex; flex-wrap: wrap; gap: 14px; }
+.topbar nav a { color: var(--accent); text-decoration: none; }
+.topbar nav a:hover { text-decoration: underline; }
+
+main { max-width: 1000px; margin: 0 auto; padding: 18px; }
+
+h1 { font-size: 1.4rem; margin: 0 0 14px; }
+h2 { font-size: 1.05rem; margin: 0 0 10px; }
+
+/* Two columns on wide screens; stacked otherwise. */
+.row { display: grid; gap: 16px; }
+.row-top { grid-template-columns: 1fr; }
+@media (min-width: 820px) {
+  .row-top { grid-template-columns: minmax(280px, 1fr) 420px; }
+}
+
+.panel {
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 14px;
+  margin-bottom: 16px;
+}
+
+/* ------------------------------------------------------------- calendar */
+table.calendar { width: 100%; border-collapse: collapse; }
+table.calendar th {
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 6px 0;
+  font-weight: 600;
+}
+table.calendar td {
+  text-align: center;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: 4px;
+  width: 14.28%;
+}
+table.calendar td a {
+  display: block;
+  padding: 8px 0;
+  color: var(--ink);
+  text-decoration: none;
+}
+table.calendar td a:hover { background: #eef4f8; border-radius: 4px; }
+table.calendar td.empty { background: #fafafa; }
+table.calendar td.today { outline: 1px dashed var(--muted); border-radius: 4px; }
+table.calendar td.selected { background: var(--accent); border-radius: 4px; }
+table.calendar td.selected a { color: #fff; font-weight: 600; }
+
+.calendar-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+
+/* ---------------------------------------------------------------- image */
+.image-panel .preview {
+  width: 100%;
+  max-width: 400px;
+  height: auto;
+  border: 1px solid var(--ink);
+  image-rendering: pixelated;
+  background: #fff;
+}
+.placeholder {
+  width: 100%;
+  max-width: 400px;
+  aspect-ratio: 4 / 3;
+  display: grid;
+  place-items: center;
+  border: 1px dashed var(--line);
+  color: var(--muted);
+  background: #fcfcfc;
+}
+.meta { color: var(--muted); font-size: 0.85rem; word-break: break-all; }
+
+/* --------------------------------------------------------------- forms */
+table.fields { width: 100%; border-collapse: collapse; }
+table.fields th {
+  text-align: left;
+  vertical-align: middle;
+  font-weight: 600;
+  width: 34%;
+  padding: 6px 10px 6px 0;
+  font-size: 0.9rem;
+}
+table.fields td { padding: 6px 0; }
+table.fields input[type="text"],
+table.fields textarea {
+  width: 100%;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font: inherit;
+  background: #fff;
+}
+table.fields input:focus,
+table.fields textarea:focus,
+textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+textarea {
+  width: 100%;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: 0.85rem;
+  line-height: 1.45;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  background: #fff;
+}
+
+button, .button {
+  font: inherit;
+  padding: 8px 14px;
+  border-radius: 6px;
+  border: 1px solid var(--accent);
+  background: var(--accent);
+  color: #fff;
+  cursor: pointer;
+  text-decoration: none;
+  display: inline-block;
+}
+button:hover, .button:hover { filter: brightness(1.08); }
+button.secondary, .button.secondary {
+  background: #fff;
+  color: var(--accent);
+}
+.form-actions, .calendar-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+  margin-top: 12px;
+}
+.inline { display: inline; }
+.checkbox { display: flex; align-items: center; gap: 6px; font-size: 0.9rem; }
+
+/* --------------------------------------------------------------- misc */
+.flashes { list-style: none; padding: 0; margin: 0 0 14px; }
+.flash {
+  padding: 9px 12px;
+  border-radius: 6px;
+  margin-bottom: 8px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+.flash.ok { border-color: var(--ok); color: var(--ok); }
+.flash.error { border-color: var(--error); color: var(--error); }
+.flash.info { color: var(--muted); }
+
+.hint { color: var(--muted); font-size: 0.88rem; }
+code {
+  background: #eeece8;
+  padding: 1px 5px;
+  border-radius: 4px;
+  font-size: 0.85em;
+}
+pre {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  padding: 12px;
+  overflow-x: auto;
+  font-size: 0.82rem;
+}
+.defaults { margin-top: 20px; }
+.defaults summary { cursor: pointer; color: var(--accent); margin-bottom: 8px; }
+
+/* Login */
+.login-card {
+  max-width: 340px;
+  margin: 8vh auto;
+  background: var(--panel);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 24px;
+}
+.login-card h1 { margin-top: 0; }
+.login-card label { display: block; margin-bottom: 12px; font-size: 0.9rem; }
+.login-card input {
+  width: 100%;
+  margin-top: 5px;
+  padding: 9px 10px;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  font: inherit;
+}
+.login-card button { width: 100%; }
+
+/* --------------------------------------------------------------- uploads */
+table.assets { width: 100%; border-collapse: collapse; }
+table.assets th {
+  text-align: left;
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  padding: 6px 8px;
+  border-bottom: 1px solid var(--line);
+}
+table.assets td {
+  padding: 8px;
+  border-bottom: 1px solid var(--line);
+  vertical-align: middle;
+}
+.thumb-cell { width: 130px; }
+.thumb {
+  max-width: 120px;
+  max-height: 120px;
+  border: 1px solid var(--line);
+  background: #fff;
+  image-rendering: pixelated;
+  display: block;
+}
+.badge {
+  display: inline-block;
+  margin-left: 6px;
+  padding: 1px 6px;
+  border-radius: 10px;
+  background: #eeece8;
+  color: var(--muted);
+  font-size: 0.72rem;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+td.actions { text-align: right; white-space: nowrap; }
+button.danger {
+  background: #fff;
+  color: var(--error);
+  border-color: var(--error);
+}
+button.danger:hover { background: #fdf3f3; }
+button:disabled, button[disabled] {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.upload-form .field { margin-bottom: 12px; }
+.upload-form label { display: block; font-size: 0.9rem; margin-bottom: 4px; }
+.upload-form input[type="text"],
+.upload-form input[type="file"] {
+  width: 100%;
+  max-width: 420px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 5px;
+  font: inherit;
+  background: #fff;
+}
+
+/* On narrow screens the image table has more columns than fit. Drop the size
+   column and shrink the thumbnail rather than letting the page scroll
+   sideways. */
+@media (max-width: 560px) {
+  table.assets th:nth-child(4),
+  table.assets td:nth-child(4) { display: none; }
+  .thumb-cell { width: 76px; }
+  .thumb { max-width: 68px; max-height: 68px; }
+  table.assets td { padding: 6px 4px; font-size: 0.85rem; }
+  table.assets code { font-size: 0.8rem; word-break: break-all; }
+  td.actions button { padding: 6px 9px; font-size: 0.85rem; }
+}
