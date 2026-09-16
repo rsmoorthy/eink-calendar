@@ -1,0 +1,106 @@
+# E-Ink Display Layout & Font Configuration
+# Resolution: 400x300 BW (1-bit)
+# Note: To disable any item, set x: -1 and y: -1, or set font_size: 0.
+# Note: For icons, providing either only width or only height maintains original aspect ratio.
+
+system:
+  poll_interval_minutes: 2  # ESP32 update check frequency (e.g. 5 for dev, 60 for prod)
+
+display:
+  width: 400
+  height: 300
+
+fonts:
+  latin_bold: "server/fonts/DejaVuSans-Bold.ttf"
+  latin_regular: "server/fonts/DejaVuSans.ttf"
+  tamil_bold: "server/fonts/NotoSansTamil-Bold.ttf"
+  tamil_regular: "server/fonts/NotoSansTamil-Regular.ttf"
+
+icons_dir: "server/icons"
+
+layout:
+  line1:
+    enabled: true
+    date:
+      x: 8
+      y: 2
+      font_size: 84
+      font: "latin_bold"
+    month:
+      x: 150
+      y: 18
+      font_size: 30
+      font: "latin_bold"
+    day_of_week:
+      x: 90
+      y: 88
+      font_size: 32
+      font: "latin_bold"
+    icon:
+      x: 250
+      y: 2
+      width: 128
+      # height: 64
+
+  divider1:
+    enabled: true
+    y: 136
+
+  line2:
+    enabled: true
+    tithi:
+      x: 18
+      y: 144
+      font_size: 24
+      font: "latin_bold"
+    moon:
+      x: 195
+      y: 164
+      radius: 18
+      border_width: 2
+    paksha:
+      x: 235
+      y: 144
+      font_size: 20
+      font: "latin_regular"
+
+  divider2:
+    enabled: false
+    y: 122
+
+  line3:
+    enabled: true
+    masa:
+      x: 18
+      y: 184
+      font_size: 24
+      font: "latin_bold"
+    nakshatra:
+      x: 235
+      y: 184
+      font_size: 0
+      font: "latin_regular"
+    tamil:
+      x: 235
+      y: 184
+      font_size: 24
+      font: "tamil_bold"
+
+  divider3:
+    enabled: true
+    y: 222
+
+  line4:
+    enabled: true
+    custom_text:
+      x: 2
+      y: 252
+      font_size: 26
+      font: "latin_bold"
+      max_width: 364
+      default_message: "Namaste"
+    icon:
+      x: -1
+      y: -1
+      width: 64
+      height: 64

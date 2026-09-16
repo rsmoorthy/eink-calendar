@@ -1,0 +1,287 @@
+{% extends "base.html" %}
+
+{% block title %}Calendar Dashboard{% endblock %}
+
+{% block content %}
+<div class="dashboard-grid">
+    <!-- Top Row: Column 1 = Calendar Picker & Bulk Generate, Column 2 = Display Preview (400x300) -->
+    <div class="card calendar-card">
+        <div class="card-header">
+            <h3>Date Navigator</h3>
+            <div class="nav-date-controls">
+                <input type="date" id="selected-date" value="{{ current_date }}">
+                <button id="btn-load-date" class="btn btn-secondary btn-sm">Load</button>
+            </div>
+        </div>
+        <div class="card-body">
+            <div class="quick-nav">
+                <button class="btn btn-sm" onclick="changeDay(-1)">← Prev Day</button>
+                <button class="btn btn-sm" onclick="goToToday()">Today</button>
+                <button class="btn btn-sm" onclick="changeDay(1)">Next Day →</button>
+            </div>
+            <div class="bulk-controls">
+                <h4>Pre-Generate Images</h4>
+                <div class="bulk-form">
+                    <label>Days:</label>
+                    <input type="number" id="bulk-days" value="90" min="1" max="365" style="width: 70px;">
+                    <label style="font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <input type="checkbox" id="bulk-force" checked> Overwrite (Force)
+                    </label>
+                    <label style="font-size: 0.85rem; display: inline-flex; align-items: center; gap: 4px; cursor: pointer;">
+                        <input type="checkbox" id="bulk-refetch"> Refetch panchanga
+                    </label>
+                    <button id="btn-bulk-gen" class="btn btn-warning btn-sm" onclick="triggerBulk()">Generate</button>
+                </div>
+                <div id="bulk-status" class="status-msg"></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="card preview-card">
+        <div class="card-header">
+            <h3>E-Ink Display Preview (400×300)</h3>
+            <span id="image-status-badge" class="badge">Checking...</span>
+        </div>
+        <div class="card-body preview-body">
+            <div class="display-frame">
+                <img id="preview-img" src="/api/preview/{{ current_date }}.png" alt="Display Preview" width="400" height="300">
+                <div id="no-image-placeholder" class="no-image" style="display: none;">
+                    <p>No image generated for this date yet.</p>
+                    <button class="btn btn-primary" onclick="submitDayForm()">Generate Bitmap</button>
+                </div>
+            </div>
+            <div class="image-meta">
+                <span>Checksum: <code id="lbl-checksum">-</code></span>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Next Row: Two-column editable table with fields (Date, Lunar Month, Tithi, Paksha, Nakshatra, Tamil Month, Tamil Date, Custom Text) -->
+<div class="card details-card">
+    <div class="card-header">
+        <h3>Day Metadata & Custom Text</h3>
+        <p class="subtitle">Edit values to customize the day's display on the e-Paper screen</p>
+    </div>
+    <div class="card-body">
+        <form id="day-form" onsubmit="event.preventDefault(); submitDayForm();">
+            <div class="table-container">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 30%;">Field Name</th>
+                            <th style="width: 70%;">Value</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Date (Gregorian)</strong></td>
+                            <td><span id="f-gregorian-date">{{ current_date }}</span></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Day of Week</strong></td>
+                            <td><input type="text" id="f-day-of-week" name="day_of_week" class="form-control"></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Lunar Masa (Month)</strong></td>
+                            <td><input type="text" id="f-lunar-masa" name="lunar_masa" class="form-control"></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Lunar Tithi</strong></td>
+                            <td><input type="text" id="f-lunar-tithi" name="lunar_tithi" class="form-control"></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Lunar Paksha</strong></td>
+                            <td>
+                                <select id="f-lunar-paksha" name="lunar_paksha" class="form-control">
+                                    <option value="Shukla">Shukla</option>
+                                    <option value="Krishna">Krishna</option>
+                                </select>
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Nakshatra</strong></td>
+                            <td><input type="text" id="f-nakshatra" name="nakshatra" class="form-control"></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tamil Month (Tamil Script)</strong></td>
+                            <td><input type="text" id="f-tamil-month-ta" name="tamil_month_ta" class="form-control"></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Tamil Date</strong></td>
+                            <td><input type="number" id="f-tamil-date" name="tamil_date" class="form-control" style="width: 100px;"></td>
+                        </tr>
+                        <tr>
+                            <td><strong>Day icon file</strong><br><small class="text-muted">Line 1 icon file (e.g. mon.png, adiyogi.png)</small></td>
+                            <td><input type="text" id="f-icon-name" name="icon_name" class="form-control" placeholder="Leave empty for day of week default"></td>
+                        </tr>
+                        <tr class="highlight-row">
+                            <td><strong>Custom Text (Line 4)</strong><br><small class="text-muted">Greetings, birthdays, special notices</small></td>
+                            <td>
+                                <input type="text" id="f-custom-text" name="custom_text" class="form-control form-control-lg" placeholder="e.g. Happy Birthday Ramesh!">
+                            </td>
+                        </tr>
+                        <tr>
+                            <td><strong>Addl icon file</strong><br><small class="text-muted">Line 4 icon file (e.g. vinayaka.png)</small></td>
+                            <td><input type="text" id="f-addl-icon-name" name="addl_icon_name" class="form-control" placeholder="e.g. vinayaka.png"></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success btn-lg">Generate & Save Bitmap</button>
+                <span id="save-status" class="status-msg"></span>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    let currentDate = "{{ current_date }}";
+
+    async function loadDayData(dateStr) {
+        currentDate = dateStr;
+        document.getElementById("selected-date").value = dateStr;
+        document.getElementById("f-gregorian-date").innerText = dateStr;
+        document.getElementById("save-status").innerText = "Loading...";
+
+        try {
+            const resp = await fetch(`/api/day/${dateStr}`);
+            const data = await resp.json();
+
+            document.getElementById("f-day-of-week").value = data.day_of_week || "";
+            document.getElementById("f-lunar-masa").value = data.lunar_masa || "";
+            document.getElementById("f-lunar-tithi").value = data.lunar_tithi || "";
+            document.getElementById("f-lunar-paksha").value = data.lunar_paksha || "Shukla";
+            document.getElementById("f-nakshatra").value = data.nakshatra || "";
+            document.getElementById("f-tamil-month-ta").value = data.tamil_month_ta || "";
+            document.getElementById("f-tamil-date").value = data.tamil_date || 0;
+            document.getElementById("f-icon-name").value = data.day_icon_file || data.icon_name || "";
+            document.getElementById("f-custom-text").value = data.custom_text || "";
+            document.getElementById("f-addl-icon-name").value = data.addl_icon_file || data.addl_icon_name || "";
+
+            const badge = document.getElementById("image-status-badge");
+            const previewImg = document.getElementById("preview-img");
+            const placeholder = document.getElementById("no-image-placeholder");
+            const checksumLbl = document.getElementById("lbl-checksum");
+
+            if (data.has_image) {
+                badge.innerText = "Generated";
+                badge.className = "badge badge-success";
+                previewImg.src = `/api/preview/${dateStr}.png?t=${Date.now()}`;
+                previewImg.style.display = "block";
+                placeholder.style.display = "none";
+                checksumLbl.innerText = data.checksum || "-";
+            } else {
+                badge.innerText = "Not Generated";
+                badge.className = "badge badge-warning";
+                previewImg.style.display = "none";
+                placeholder.style.display = "flex";
+                checksumLbl.innerText = "-";
+            }
+            document.getElementById("save-status").innerText = "";
+        } catch (err) {
+            document.getElementById("save-status").innerText = "Error loading date: " + err.message;
+        }
+    }
+
+    async function submitDayForm() {
+        const statusEl = document.getElementById("save-status");
+        statusEl.innerText = "Generating image and saving...";
+        statusEl.className = "status-msg text-info";
+
+        const payload = {
+            day_of_week: document.getElementById("f-day-of-week").value,
+            lunar_masa: document.getElementById("f-lunar-masa").value,
+            lunar_tithi: document.getElementById("f-lunar-tithi").value,
+            lunar_paksha: document.getElementById("f-lunar-paksha").value,
+            nakshatra: document.getElementById("f-nakshatra").value,
+            tamil_month_ta: document.getElementById("f-tamil-month-ta").value,
+            tamil_date: parseInt(document.getElementById("f-tamil-date").value) || 0,
+            icon_name: document.getElementById("f-icon-name").value.trim(),
+            day_icon_file: document.getElementById("f-icon-name").value.trim(),
+            custom_text: document.getElementById("f-custom-text").value,
+            addl_icon_name: document.getElementById("f-addl-icon-name").value.trim(),
+            addl_icon_file: document.getElementById("f-addl-icon-name").value.trim()
+        };
+
+        try {
+            const resp = await fetch(`/api/day/${currentDate}`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(payload)
+            });
+            if (!resp.ok) {
+                const text = await resp.text();
+                statusEl.innerText = `Error (${resp.status}): ${text}`;
+                statusEl.className = "status-msg text-danger";
+                return;
+            }
+            const res = await resp.json();
+            if (res.status === "ok") {
+                statusEl.innerText = "Bitmap regenerated successfully!";
+                statusEl.className = "status-msg text-success";
+                loadDayData(currentDate);
+            } else {
+                statusEl.innerText = "Failed: " + res.message;
+                statusEl.className = "status-msg text-danger";
+            }
+        } catch (err) {
+            statusEl.innerText = "Error: " + err.message;
+            statusEl.className = "status-msg text-danger";
+        }
+    }
+
+    function changeDay(delta) {
+        const d = new Date(currentDate);
+        d.setDate(d.getDate() + delta);
+        const nextDateStr = d.toISOString().split("T")[0];
+        loadDayData(nextDateStr);
+    }
+
+    function goToToday() {
+        const todayStr = new Date().toISOString().split("T")[0];
+        loadDayData(todayStr);
+    }
+
+    async function triggerBulk() {
+        const days = parseInt(document.getElementById("bulk-days").value) || 90;
+        const statusEl = document.getElementById("bulk-status");
+        statusEl.innerText = `Starting generation for ${days} days...`;
+        statusEl.className = "status-msg text-info";
+
+        try {
+            const force = document.getElementById("bulk-force").checked;
+            const refetchPanchanga = document.getElementById("bulk-refetch").checked;
+            const resp = await fetch(`/api/generate`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ start_date: currentDate, days: days, force: force, refetch_panchanga: refetchPanchanga })
+            });
+            if (!resp.ok) {
+                const text = await resp.text();
+                statusEl.innerText = `Error (${resp.status}): ${text}`;
+                statusEl.className = "status-msg text-danger";
+                return;
+            }
+            const res = await resp.json();
+            statusEl.innerText = `Generated: ${res.generated_count}, Skipped: ${res.skipped_count}`;
+            statusEl.className = "status-msg text-success";
+            loadDayData(currentDate);
+        } catch (err) {
+            statusEl.innerText = "Bulk generate error: " + err.message;
+            statusEl.className = "status-msg text-danger";
+        }
+    }
+
+    document.getElementById("btn-load-date").addEventListener("click", () => {
+        const val = document.getElementById("selected-date").value;
+        if (val) loadDayData(val);
+    });
+
+    document.addEventListener("DOMContentLoaded", () => {
+        loadDayData(currentDate);
+    });
+</script>
+{% endblock %}

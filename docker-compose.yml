@@ -1,0 +1,14 @@
+services:
+  calendar-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: amma_calendar_server
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      - ./server:/app/server
+    environment:
+      - CALENDAR_DB_PATH=/app/server/calendar.db
+    command: ["uvicorn", "server.app:app", "--host", "0.0.0.0", "--port", "8080", "--reload"]

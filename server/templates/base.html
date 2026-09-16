@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Calendar Admin{% endblock %} - Amma Calendar</title>
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+    <header class="navbar">
+        <div class="nav-container">
+            <a href="/home" class="logo">🕉️ Amma Calendar</a>
+            <nav class="nav-links">
+                {% if user %}
+                <a href="/home" class="nav-item">Calendar</a>
+                <a href="/config" class="nav-item">Display Config</a>
+                <a href="/upload" class="nav-item">Upload</a>
+                <span class="user-badge">{{ user }}</span>
+                <a href="/logout" class="nav-item logout">Logout</a>
+                {% endif %}
+            </nav>
+        </div>
+    </header>
+
+    <main class="container">
+        {% block content %}{% endblock %}
+    </main>
+</body>
+</html>

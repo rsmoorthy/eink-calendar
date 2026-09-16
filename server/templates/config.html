@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+
+{% block title %}Layout Configuration{% endblock %}
+
+{% block content %}
+<div class="card config-card">
+    <div class="card-header">
+        <h3>E-Ink Display Micro-Configuration (YAML)</h3>
+        <p class="subtitle">Fine-tune coordinates (X, Y), font sizes, line dividers, and icon placement.</p>
+    </div>
+    <div class="card-body">
+        <form id="config-form" onsubmit="event.preventDefault(); saveConfig();">
+            <div class="form-group">
+                <label for="config-yaml"><strong>Configuration YAML:</strong></label>
+                <textarea id="config-yaml" name="config_yaml" rows="24" class="code-editor" spellcheck="false">{{ config_yaml }}</textarea>
+            </div>
+            <div class="form-actions">
+                <button type="submit" class="btn btn-success btn-lg">Save Configuration</button>
+                <button type="button" class="btn btn-secondary" onclick="resetDefault()">Reset to Default</button>
+                <span id="config-status" class="status-msg"></span>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+    async function saveConfig() {
+        const statusEl = document.getElementById("config-status");
+        statusEl.innerText = "Saving configuration...";
+        statusEl.className = "status-msg text-info";
+
+        const yamlText = document.getElementById("config-yaml").value;
+
+        try {
+            const resp = await fetch("/api/config", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ config_yaml: yamlText })
+            });
+            const res = await resp.json();
+            if (res.status === "ok") {
+                statusEl.innerText = "Configuration saved successfully!";
+                statusEl.className = "status-msg text-success";
+            } else {
+                statusEl.innerText = "Error: " + res.message;
+                statusEl.className = "status-msg text-danger";
+            }
+        } catch (err) {
+            statusEl.innerText = "Error: " + err.message;
+            statusEl.className = "status-msg text-danger";
+        }
+    }
+
+    async function resetDefault() {
+        if (!confirm("Are you sure you want to reload the default YAML configuration?")) return;
+        try {
+            const resp = await fetch("/api/config?reset=true");
+            const res = await resp.json();
+            if (res.config_yaml) {
+                document.getElementById("config-yaml").value = res.config_yaml;
+                document.getElementById("config-status").innerText = "Reloaded default config.";
+                document.getElementById("config-status").className = "status-msg text-info";
+            }
+        } catch (err) {
+            alert("Failed to load default config: " + err.message);
+        }
+    }
+</script>
+{% endblock %}

@@ -1,0 +1,214 @@
+{% extends "base.html" %}
+
+{% block title %}Upload Icons{% endblock %}
+
+{% block content %}
+<!-- Icon Upload Card -->
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+        <h3>Upload New Icon</h3>
+        <p class="subtitle">Upload PNG or image icons for use in Line 1 (Day icon) or Line 4 (Additional icon).</p>
+    </div>
+    <div class="card-body">
+        <form id="upload-form" onsubmit="event.preventDefault(); submitUpload();" style="display: flex; flex-wrap: wrap; gap: 1rem; align-items: flex-end;">
+            <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 240px;">
+                <label for="icon-file"><strong>Select Image File:</strong></label>
+                <input type="file" id="icon-file" name="file" accept="image/png,image/jpeg,image/webp,image/gif" required class="form-control" style="padding: 0.5rem; border: 1px solid var(--border); border-radius: 6px; width: 100%;">
+            </div>
+            <div class="form-group" style="margin-bottom: 0; flex: 1; min-width: 200px;">
+                <label for="custom-name"><strong>Custom Filename (optional):</strong></label>
+                <input type="text" id="custom-name" name="custom_name" placeholder="e.g. ganesha.png" class="form-control" style="width: 100%;">
+            </div>
+            <div>
+                <button type="submit" id="btn-upload" class="btn btn-primary btn-lg" style="height: 42px;">Upload Icon</button>
+            </div>
+        </form>
+        <div id="upload-status" class="status-msg" style="margin-top: 0.75rem;"></div>
+    </div>
+</div>
+
+<!-- Day of Week Icons Table (Separate Table) -->
+<div class="card" style="margin-bottom: 2rem;">
+    <div class="card-header">
+        <h3>Day of Week Icons (mon.png to sun.png)</h3>
+        <p class="subtitle">Standard icons automatically used by Line 1 based on day of week.</p>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 160px;">Thumbnail</th>
+                        <th>File Name</th>
+                        <th>Resolution</th>
+                        <th>File Size</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for icon in day_icons %}
+                    <tr>
+                        <td style="vertical-align: middle;">
+                            <img src="{{ icon.url }}" alt="{{ icon.name }}" width="128" class="icon-thumb">
+                        </td>
+                        <td style="vertical-align: middle;">
+                            <strong>{{ icon.name }}</strong>
+                        </td>
+                        <td style="vertical-align: middle;">
+                            <code>{{ icon.resolution }}</code>
+                        </td>
+                        <td style="vertical-align: middle;">
+                            {{ icon.size_kb }} KB
+                        </td>
+                        <td style="vertical-align: middle;">
+                            <span class="badge" style="background: #e2e8f0; color: #334155;">Day of Week Default</span>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 1.5rem;">
+                            No day of week icons found.
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Other Custom Icons Table (Separate Table) -->
+<div class="card">
+    <div class="card-header">
+        <h3>Custom Icons</h3>
+        <p class="subtitle">Additional icons available for "Day icon file" (Line 1 override) and "Addl icon file" (Line 4 icon).</p>
+    </div>
+    <div class="card-body">
+        <div class="table-container">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 160px;">Thumbnail</th>
+                        <th>File Name</th>
+                        <th>Resolution</th>
+                        <th>File Size</th>
+                        <th style="width: 120px; text-align: center;">Action</th>
+                    </tr>
+                </thead>
+                <tbody id="other-icons-tbody">
+                    {% for icon in other_icons %}
+                    <tr id="row-{{ icon.name | replace('.', '_') }}">
+                        <td style="vertical-align: middle;">
+                            <img src="{{ icon.url }}" alt="{{ icon.name }}" width="128" class="icon-thumb">
+                        </td>
+                        <td style="vertical-align: middle;">
+                            <strong>{{ icon.name }}</strong>
+                        </td>
+                        <td style="vertical-align: middle;">
+                            <code>{{ icon.resolution }}</code>
+                        </td>
+                        <td style="vertical-align: middle;">
+                            {{ icon.size_kb }} KB
+                        </td>
+                        <td style="vertical-align: middle; text-align: center;">
+                            <button class="btn btn-danger btn-sm" onclick="deleteIcon('{{ icon.name }}')">Delete</button>
+                        </td>
+                    </tr>
+                    {% else %}
+                    <tr id="no-custom-icons-row">
+                        <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">
+                            No custom icons uploaded yet. Use the upload form above to add custom icons!
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+    async function submitUpload() {
+        const fileInput = document.getElementById("icon-file");
+        const customNameInput = document.getElementById("custom-name");
+        const statusEl = document.getElementById("upload-status");
+        const btn = document.getElementById("btn-upload");
+
+        if (!fileInput.files || fileInput.files.length === 0) {
+            statusEl.innerText = "Please select a file to upload.";
+            statusEl.className = "status-msg text-danger";
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+        if (customNameInput.value.trim()) {
+            formData.append("custom_name", customNameInput.value.trim());
+        }
+
+        btn.disabled = true;
+        statusEl.innerText = "Uploading icon...";
+        statusEl.className = "status-msg text-info";
+
+        try {
+            const resp = await fetch("/api/upload", {
+                method: "POST",
+                body: formData
+            });
+
+            if (!resp.ok) {
+                const text = await resp.text();
+                statusEl.innerText = `Upload failed (${resp.status}): ${text}`;
+                statusEl.className = "status-msg text-danger";
+                btn.disabled = false;
+                return;
+            }
+
+            const res = await resp.json();
+            if (res.status === "ok") {
+                statusEl.innerText = `Uploaded '${res.filename}' successfully! Refreshing...`;
+                statusEl.className = "status-msg text-success";
+                setTimeout(() => {
+                    window.location.reload();
+                }, 700);
+            } else {
+                statusEl.innerText = "Upload failed: " + (res.message || "Unknown error");
+                statusEl.className = "status-msg text-danger";
+                btn.disabled = false;
+            }
+        } catch (err) {
+            statusEl.innerText = "Upload error: " + err.message;
+            statusEl.className = "status-msg text-danger";
+            btn.disabled = false;
+        }
+    }
+
+    async function deleteIcon(filename) {
+        if (!confirm(`Are you sure you want to delete '${filename}'?`)) {
+            return;
+        }
+
+        try {
+            const resp = await fetch(`/api/icons/${encodeURIComponent(filename)}/delete`, {
+                method: "POST"
+            });
+
+            if (!resp.ok) {
+                const text = await resp.text();
+                alert(`Delete failed: ${text}`);
+                return;
+            }
+
+            const res = await resp.json();
+            if (res.status === "ok") {
+                // Reload page to reflect changes
+                window.location.reload();
+            } else {
+                alert("Delete failed: " + (res.message || "Unknown error"));
+            }
+        } catch (err) {
+            alert("Delete error: " + err.message);
+        }
+    }
+</script>
+{% endblock %}
