@@ -72,16 +72,18 @@
         <th><label for="f-{{ field }}">{{ labels[field] }}</label></th>
         <td>
           {% if field == 'custom_text' %}
+            {# "or ''" matters: a NULL custom_text renders as the literal text
+               "None", which a save would then store as the day's contents. #}
             <textarea id="f-{{ field }}" name="{{ field }}" rows="2"
-                      placeholder="e.g. Happy Birthday Ravi">{{ content[field] if content else '' }}</textarea>
+                      placeholder="blank = use the festival">{{ (content[field] if content else '') or '' }}</textarea>
           {% elif field in ('day_image', 'addl_image') %}
             {# Offer the uploaded images, but allow any name to be typed too. #}
             <input id="f-{{ field }}" type="text" name="{{ field }}" list="image-names"
                    placeholder="{{ 'blank = weekday image (sun, mon, ...)' if field == 'day_image' else 'blank = no image' }}"
-                   value="{{ content[field] if content and content[field] is not none else '' }}">
+                   value="{{ (content[field] if content and content[field] is not none else '') or '' }}">
           {% else %}
             <input id="f-{{ field }}" type="text" name="{{ field }}"
-                   value="{{ content[field] if content and content[field] is not none else '' }}">
+                   value="{{ (content[field] if content and content[field] is not none else '') or '' }}">
           {% endif %}
         </td>
       </tr>

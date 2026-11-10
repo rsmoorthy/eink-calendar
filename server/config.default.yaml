@@ -106,6 +106,12 @@ line3:
   nakshatra:
     x: 258
     font_size: 18
+  # Next Ekadashi, drawn as "N.Eka: <Mon> <date>". Shipped switched off with
+  # x and y of -1, so it does not appear until a position is chosen here.
+  next_ekadashi:
+    x: -1
+    y: -1
+    font_size: 18
   tamil_month:
     x: 10
     y: 228

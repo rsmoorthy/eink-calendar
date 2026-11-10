@@ -17,6 +17,8 @@ from contextlib import contextmanager
 from datetime import date as Date
 from pathlib import Path
 
+from panchanga import NEXT_EKADASHI_NONE
+
 SERVER_DIR = Path(__file__).resolve().parent
 
 # Fields that make up a day's content. Kept in one place so the API, renderer
@@ -27,6 +29,8 @@ CONTENT_FIELDS = (
     "tithi",
     "tithi_number",
     "nakshatra",
+    "festival",
+    "next_ekadashi",
     "tamil_month",
     "tamil_month_ta",
     "tamil_date",
@@ -46,6 +50,8 @@ CREATE TABLE IF NOT EXISTS day (
     tithi           TEXT,
     tithi_number    INTEGER,
     nakshatra       TEXT,
+    festival        TEXT,
+    next_ekadashi   TEXT,
     tamil_month     TEXT,
     tamil_month_ta  TEXT,
     tamil_date      INTEGER,
@@ -149,6 +155,7 @@ class Database:
         for column, definition in MIGRATIONS:
             if column not in existing:
                 conn.execute(f"ALTER TABLE day ADD COLUMN {column} {definition}")
+        _backfill(conn, existing)
 
     # ------------------------------------------------------------------- days
     def get_day(self, day: Date | str) -> sqlite3.Row | None:
@@ -235,6 +242,23 @@ class Database:
         )
         return list(cur.fetchall())
 
+    def festivals_between(self, start: Date, end: Date) -> list[tuple[str, str]]:
+        """``(date, festival)`` pairs for ``start``..``end`` inclusive, by date.
+
+        Only these two columns are read: this is used to scan a window for an
+        Ekadashi festival, and must not drag each day's rendered bitmap out of
+        the table to do it.
+        """
+        cur = self.connection.execute(
+            """
+            SELECT date, festival FROM day
+            WHERE date >= ? AND date <= ?
+            ORDER BY date
+            """,
+            (start.isoformat(), end.isoformat()),
+        )
+        return [(row["date"], row["festival"] or "") for row in cur]
+
     def set_checksum_meta(self, day: Date, **values: object) -> None:
         self.upsert_content(day, values)
 
@@ -318,7 +342,24 @@ MIGRATIONS: tuple[tuple[str, str], ...] = (
     ("tithi_source", "TEXT"),
     ("day_image", "TEXT"),
     ("addl_image", "TEXT"),
+    ("festival", "TEXT"),
+    ("next_ekadashi", "TEXT"),
 )
+
+
+def _backfill(conn: sqlite3.Connection, existing: set[str]) -> None:
+    """Give rows created before a column existed a sensible value for it.
+
+    A column added by ALTER TABLE is NULL on every existing row. For
+    ``next_ekadashi`` NULL would draw as an empty field, so those rows are set
+    to the blank form ("N.Eka: —") that a freshly fetched day would have. The
+    derived pass replaces them with real dates as it runs.
+    """
+    if "next_ekadashi" not in existing:
+        conn.execute(
+            "UPDATE day SET next_ekadashi = ? WHERE next_ekadashi IS NULL",
+            (NEXT_EKADASHI_NONE,),
+        )
 
 
 def _parse_overrides(raw: str | None) -> list[str]:

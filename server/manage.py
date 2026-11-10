@@ -6,6 +6,7 @@ Usage:
   python manage.py list-admins
   python manage.py delete-admin <username>
   python manage.py refresh [--days N] [--start YYYY-MM-DD]
+  python manage.py refresh-derived [--days N] [--start YYYY-MM-DD]
   python manage.py generate [--days N] [--start YYYY-MM-DD] [--no-refresh]
   python manage.py seed-tamil-months
   python manage.py status
@@ -87,6 +88,21 @@ def cmd_refresh(args) -> int:
     return 0 if ok else 1
 
 
+def cmd_refresh_derived(args) -> int:
+    """Run only the second pass, over data already stored.
+
+    The derived fields describe a day in terms of a later one, so they need the
+    range's tithis to be present first. This is the pass to run after extending
+    the stored range, or to fill in the days at its end that previously had no
+    Ekadashi ahead of them.
+    """
+    service = _service()
+    start = Date.fromisoformat(args.start) if args.start else today_ist()
+    updated = service.refresh_derived_range(start, args.days)
+    print(f"Derived fields updated for {updated} of {args.days} days from {start}.")
+    return 0
+
+
 def cmd_generate(args) -> int:
     service = _service()
     start = Date.fromisoformat(args.start) if args.start else today_ist()
@@ -154,6 +170,14 @@ def main() -> int:
     refresh.add_argument("--days", type=int, default=4)
     refresh.add_argument("--start", help="YYYY-MM-DD, defaults to today IST")
     refresh.set_defaults(func=cmd_refresh)
+
+    derived = sub.add_parser(
+        "refresh-derived",
+        help="recompute fields derived from a range (e.g. next Ekadashi)",
+    )
+    derived.add_argument("--days", type=int, default=90)
+    derived.add_argument("--start", help="YYYY-MM-DD, defaults to today IST")
+    derived.set_defaults(func=cmd_refresh_derived)
 
     generate = sub.add_parser("generate", help="render bitmaps for a date range")
     generate.add_argument("--days", type=int, default=90)

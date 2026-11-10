@@ -7,8 +7,17 @@ image is rendered with dashes rather than a computed substitute.
 
 Tithi selection: the matha publishes both "Tithi" and "Shraddha Tithi". They can
 differ (for example on 2026-09-15 the page reports Tithi CHATURTHI but Shraddha
-Tithi PANCHAMI). "Shraddha Tithi" wins when present, per the project decision;
-otherwise "Tithi" is used.
+Tithi PANCHAMI). "Shraddha Tithi" wins, because it is the tithi that governs the
+day's observances. It is skipped on the days it does not name a tithi of its own
+— "SHRADDHABHAVA", or a compound such as "EKADASHI/DVADASHI" meaning the tithi
+changes during the day — and the plain "Tithi" element names the day instead.
+
+The "Festivals/Events" element is captured alongside as ``festival``. See
+:func:`select_tithi`.
+
+Ekadashi detection: a day is an Ekadashi when its "Festivals/Events" text
+contains the letters "EKADASHI" as a substring, case-insensitively. The tithi is
+not consulted. See :func:`is_ekadashi`.
 """
 
 from __future__ import annotations
@@ -26,6 +35,12 @@ PANCHANGA_URL = "https://vyasarajamatha.org/panchanga_ajax.php"
 IST = timezone(timedelta(hours=5, minutes=30))
 
 DASH = "—"
+
+# The "next Ekadashi" annotation names a calendar date as "N.Eka: <Mon> <date>".
+# Defined here rather than in the service because storage also needs the empty
+# form: a day with no known Ekadashi ahead of it.
+NEXT_EKADASHI_PREFIX = "N.Eka: "
+NEXT_EKADASHI_NONE = f"{NEXT_EKADASHI_PREFIX}{DASH}"
 
 # Tithi index within a paksha. Purnima/Amavasya close out the fortnight at 15.
 TITHI_NUMBERS = {
@@ -68,6 +83,36 @@ _DISPLAY_OVERRIDES = {
 # Displayed on its own line, so the word "paksha" is redundant.
 PAKSHA_DISPLAY = {"SHUKLA": "Shukla", "KRISHNA": "Krishna"}
 
+# Festival values that mean "the source stated one but it carried no name"; the
+# only one seen is the literal text "None" (a null the source rendered as a
+# string). Treated as absent so it is never written to the database, and never
+# drawn as the day's custom text.
+_EMPTY_FESTIVALS = {"NONE", "NIL", "NA", "N/A"}
+
+
+def select_tithi(tithi_raw: str | None, shraddha_raw: str | None) -> tuple[str, str]:
+    """Choose the day's tithi from the two the source publishes.
+
+    Returns ``(value, source_label)``, where the value is raw as scraped and the
+    label names the element it came from, for display on the web page.
+
+    "Shraddha Tithi" governs the day and wins, except where it does not name a
+    single tithi:
+
+    * "SHRADDHABHAVA" — a shraddha observance rather than a tithi, so the day is
+      named by the "Tithi" element instead.
+    * a compound such as "EKADASHI/DVADASHI" — the tithi changes during the day,
+      so the "Tithi" element carries the name the day is known by.
+    """
+    tithi = (tithi_raw or "").strip()
+    shraddha = (shraddha_raw or "").strip()
+
+    if not shraddha:
+        return tithi, "Tithi"
+    if shraddha.upper() == "SHRADDHABHAVA" or "/" in shraddha:
+        return tithi, "Tithi"
+    return shraddha, "Shraddha Tithi"
+
 
 def primary_tithi(name: str | None) -> str:
     """First component of a tithi name, upper-cased.
@@ -90,6 +135,17 @@ def tithi_number_for(name: str | None) -> int | None:
     """
     return TITHI_NUMBERS.get(primary_tithi(name))
 
+
+def is_ekadashi(festival: str | None) -> bool:
+    """Whether the day's festival text names an Ekadashi.
+
+    The matha writes the occasion as one word, such as
+    "SARVESHAMEKADASHI(PASHANKUSHA)", so this is a case-insensitive substring
+    match rather than a word match. It is the only rule: the tithi is not
+    consulted.
+    """
+    return "EKADASHI" in (festival or "").upper()
+
 _HEADERS = {
     "accept": "*/*",
     "accept-language": "en-IN,en-US;q=0.9,en;q=0.8",
@@ -111,6 +167,7 @@ class Panchanga:
     tithi: str = DASH
     tithi_number: int | None = None
     nakshatra: str = DASH
+    festival: str = ""
     tithi_source: str = "unavailable"
     ok: bool = False
     raw: dict | None = None
@@ -163,22 +220,17 @@ def fetch_panchanga(day: Date, session: requests.Session | None = None) -> Panch
     tithi_raw = _clean(fields.get("Tithi"))
     shraddha_raw = _clean(fields.get("Shraddha Tithi"))
     nakshatra = _clean(fields.get("Nakshatra"))
+    festival = _clean_festival(fields.get("Festivals/Events"))
 
-    # Shraddha Tithi takes precedence when the matha publishes it.
-    if shraddha_raw:
-        chosen, source = shraddha_raw, "Shraddha Tithi"
-    elif tithi_raw:
-        chosen, source = tithi_raw, "Tithi"
-    else:
-        chosen, source = "", "unavailable"
+    chosen, source = select_tithi(tithi_raw, shraddha_raw)
 
-    if not masa and not chosen and not nakshatra:
+    if not masa and not chosen and not nakshatra and not festival:
         return Panchanga(date=day, ok=False, raw=fields)
 
     # The moon's illuminated fraction needs the day's position in the
-    # fortnight. "Shraddha Tithi" is sometimes not a standard tithi name (for
-    # example SHRADDHABHAVA on 2026-11-20), so fall back to the plain Tithi for
-    # the phase while still displaying the Shraddha Tithi text.
+    # fortnight. The chosen value is normally a standard tithi name, but a
+    # manually overridden row or an unexpected source value may not be, so fall
+    # back to the plain Tithi for the phase.
     tithi_number = tithi_number_for(chosen)
     if tithi_number is None and tithi_raw:
         tithi_number = tithi_number_for(tithi_raw)
@@ -192,6 +244,7 @@ def fetch_panchanga(day: Date, session: requests.Session | None = None) -> Panch
         tithi=_display_tithi(chosen) if chosen else DASH,
         tithi_number=tithi_number,
         nakshatra=_title(nakshatra) if nakshatra else DASH,
+        festival=festival,
         tithi_source=source,
         ok=True,
         raw=fields,
@@ -220,6 +273,19 @@ def _clean(value: str | None) -> str:
         return ""
     text = re.sub(r"\s+", " ", value).strip()
     return text.strip(" .,")
+
+
+def _clean_festival(value: str | None) -> str:
+    """Normalise the Festivals/Events element, or "" when it names nothing.
+
+    The element is free text and sometimes holds more than one event separated
+    by commas, which is kept as it stands: the renderer wraps it, and splitting
+    or shortening it here would lose information the admin can still edit.
+    """
+    text = _clean(value)
+    if text.upper() in _EMPTY_FESTIVALS:
+        return ""
+    return text
 
 
 def _title(value: str) -> str:

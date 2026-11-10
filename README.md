@@ -88,8 +88,9 @@ horizon is about 90 requests per day.
 ## The web interface
 
 - **`/home`** — a month calendar. Selecting a date shows that day's image beside
-  it, with the editable fields below (Masa, Paksha, Tithi, Nakshatra, Tamil month,
-  Tamil date, and Custom text). Saving re-renders the image.
+  it, with the editable fields below (Masa, Paksha, Tithi, Nakshatra, Festival,
+  Next Ekadashi, Tamil month, Tamil date, and Custom text). Saving re-renders the
+  image.
   - **Generate image** renders a day that has no image yet.
   - **Re-fetch panchanga** re-scrapes that day.
   - **Refresh whole month** re-scrapes every day in the displayed month.
@@ -114,6 +115,58 @@ suggestions. Leaving **Day Image** blank uses the weekday default
 (`mon.png`, `tue.png`, …); leaving **Addl image** blank draws nothing.
 
 On screens narrower than 820px the calendar and image stack vertically.
+
+### Custom text and festivals
+
+The last line of the image shows the day's **Custom text**, and when that is
+empty it falls back to the day's **Festival** scraped from the source. A day with
+a festival and no custom text is therefore labelled with the festival
+automatically, and your own custom text overrides it for that day.
+
+The two stay separate in the database: the festival is not copied into Custom
+text, so clearing your custom text brings the festival back rather than losing
+it.
+
+Festival strings are long — the current 90-day window reaches 55 characters, for
+example `SHRIKAMBALURU RAMACHANDRATIRTHARA ARADHANE (RAYAVELURU)` — so line 4
+wraps them and steps the font size down until the block fits. On the longest
+names it settles at 14px over two lines.
+
+`python3 check_layout.py` measures that wrapped block rather than the raw string,
+so it reports the space line 4 really uses.
+
+### Next Ekadashi
+
+Each day carries a **Next Ekadashi** field, shown under Contents on `/home` and
+drawn on the image by the `line3.next_ekadashi` element. Its text is
+`N.Eka: <Mon> <date>` naming the Gregorian date of the next Ekadashi, for example
+`N.Eka: Oct 21`, and `N.Eka: —` when no Ekadashi is known ahead of the day. On a
+day that is itself an Ekadashi it names the following one, so it always tells you
+something the Tithi line does not.
+
+Whether a day is an Ekadashi is decided solely by its **Festivals/Events** text:
+the day counts when that text contains the letters `EKADASHI` anywhere,
+case-insensitively (so `SARVESHAMEKADASHI(PASHANKUSHA)` counts). The tithi is not
+consulted.
+
+This field describes a day in terms of a later one, so it cannot be filled in the
+same pass that scrapes the day: the date it names is only known once that later
+day has been scraped. Generation therefore runs in two passes —
+
+1. **Scrape** every day in the range, storing each day's own panchanga.
+2. **Derive** the fields that depend on the range: for each day, look ahead at
+   most 16 days for the first stored day whose festival names an Ekadashi and
+   write the annotation.
+
+`manage.py refresh`, `manage.py generate` and **Refresh whole month** on `/home`
+all run both passes. `manage.py refresh-derived` runs only the second, which is
+what to use after extending the stored range. The horizon is 16 days because
+consecutive Ekadashis are never more than 15 days apart, so a 90-day run leaves
+only the days after the last Ekadashi in the range showing the dash. A later run
+that covers the following fortnight fills those in.
+
+The element ships switched off (`x: -1, y: -1` in `config.default.yaml`), so it
+does not appear on the image until you give it a position on `/config`.
 
 ### Manually edited fields are preserved
 
@@ -363,13 +416,14 @@ rather than kept in a separate `lib/` directory.
 
 ### Pins
 
-From `esp32/calendar/epdif.h`, matching the prototype wiring:
+From `esp32/calendar/epdif.h`, matching the prototype wiring (see
+[`docs/pinouts.md`](docs/pinouts.md) for the board diagram and notes):
 
 | Display | ESP32-C6 |
 | --- | --- |
 | VCC | 3V3 |
 | GND | GND |
-| DIN | GPIO 5 |
+| DIN | GPIO 14 |
 | CLK | GPIO 6 |
 | CS | GPIO 4 |
 | DC | GPIO 3 |
@@ -380,9 +434,19 @@ From `esp32/calendar/epdif.h`, matching the prototype wiring:
 
 - **Panchanga** is scraped from the Vyasaraja Matha panchanga endpoint. Their
   reckoning is treated as authoritative because panchangas differ slightly
-  between sources. Where the page publishes a **Shraddha Tithi** it is used in
-  preference to **Tithi**; the two can differ (for example 2026-09-15 reports
-  Tithi Chaturthi but Shraddha Tithi Panchami).
+  between sources.
+- **Tithi** is taken from the **Shraddha Tithi** element, which governs the day's
+  observances. Two cases fall back to the plain **Tithi** element instead,
+  because the Shraddha Tithi does not name a single tithi: **SHRADDHABHAVA** (a
+  shraddha observance, not a tithi) and a compound such as **EKADASHI/DVADASHI**
+  (the tithi changes during the day, so Tithi carries the day's name). The page
+  records which element was used, under *Panchanga source* on `/home`.
+- **Festivals/Events** is stored in its own `Festival` column. When a day has no
+  **Custom text**, the festival is drawn as the image's last line instead (see
+  *Contents* below).
+- **Next Ekadashi** is derived from the festivals already stored, not from the
+  day's own scrape, so it is filled by a second pass and the days past the last
+  Ekadashi in a range show a dash until a later run covers them.
 - **When scraping fails**, the affected values are shown as em dashes and a
   small "no panchanga" marker is drawn, so a failed fetch is distinguishable
   from genuinely empty data. Nothing is computed as a fallback.

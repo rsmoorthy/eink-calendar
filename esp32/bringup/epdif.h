@@ -37,7 +37,7 @@
 #define BUSY_PIN        1
 
 #define SPI_SCK         6
-#define SPI_MOSI        14 // 5
+#define SPI_MOSI        14
 
 class EpdIf {
 public:

@@ -25,8 +25,11 @@ cd "$SCRIPT_DIR"
 
 echo "=== $(date -Is) starting refresh of $DAYS days ==="
 
-# Fetch panchanga for the window. Failures here are expected to be partial: a
-# day that cannot be scraped is stored with dashes and the run continues.
+# Fetch panchanga for the window, in two passes: every day's own values first,
+# then the fields derived from the range (next Ekadashi), which need the whole
+# window's tithis to be stored before they can be worked out. Failures here are
+# expected to be partial: a day that cannot be scraped is stored with dashes and
+# the run continues.
 "$PYTHON" manage.py refresh --days "$DAYS" || echo "warn: some days failed to refresh"
 
 # Render every day in the window, reusing whatever panchanga is now stored.

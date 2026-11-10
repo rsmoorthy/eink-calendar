@@ -21,7 +21,7 @@ from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from calendar_config import ConfigStore  # noqa: E402
-from renderer import DEFAULT_FONT, Renderer, is_hidden  # noqa: E402
+from renderer import DEFAULT_FONT, Renderer, is_hidden, line4_box  # noqa: E402
 
 # Longest values observed from the panchanga source and the Tamil month table,
 # used as the worst case for each field.
@@ -35,6 +35,11 @@ WORST_CASE = {
     "nakshatra": "Uttarabhadra",
     "tamil_month": "கார்த்திகை",  # Karthigai, the longest Tamil month name
     "tamil_date": "31",
+    # "N.Eka: " plus the longest month abbreviation and a two-digit date.
+    "next_ekadashi": "N.Eka: Sep 30",
+    # Line 4 is drawn from the day's custom text, falling back to the
+    # Festivals/Events element; this is the longest event seen from the source.
+    "custom_text": "SHRIKAMBALURU RAMACHANDRATIRTHARA ARADHANE (RAYAVELURU)",
 }
 
 
@@ -124,11 +129,25 @@ def main() -> int:
     span("line3.nakshatra",
          {**line3["nakshatra"], "y": line3["nakshatra"].get("y", line3_y)},
          WORST_CASE["nakshatra"])
+    if "next_ekadashi" in line3:
+        span("line3.next_ekadashi",
+             {**line3["next_ekadashi"],
+              "y": line3["next_ekadashi"].get("y", line3_y)},
+             WORST_CASE["next_ekadashi"])
     span("line3.tamil_month", line3["tamil_month"], WORST_CASE["tamil_month"])
     span("line3.tamil_date", line3["tamil_date"], WORST_CASE["tamil_date"])
 
+    # "line4" and "addl_image" share the bottom row, so a long custom text can
+    # run into the second image; line4_box reports the wrapped block.
     line4 = config["line4"]
-    span("line4.custom_text", line4, "Happy Birthday Ravi")
+
+    # Line 4 is not a single run of text at a fixed size: the renderer wraps it
+    # to "max_width" and steps the size down until it fits the space left above
+    # "max_y", so the drawn block is what has to be checked. Measuring the raw
+    # string at "font_size" would report a collision it does not have.
+    block = line4_box(renderer, line4, WORST_CASE["custom_text"])
+    if block is not None:
+        spans.append(("line4.custom_text", *block))
 
     # Dividers are reported separately: a full-width line is meant to cross the
     # canvas, so it would otherwise register as a collision with everything.

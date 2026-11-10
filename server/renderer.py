@@ -121,6 +121,7 @@ class RenderInput:
     paksha: str = DASH
     tithi: str = DASH
     nakshatra: str = DASH
+    next_ekadashi: str = DASH
     tamil_month: str = ""
     tamil_month_ta: str = ""
     tamil_date: int | None = None
@@ -302,6 +303,7 @@ class Renderer:
             ("masa", data.masa),
             ("tithi", data.tithi),
             ("nakshatra", data.nakshatra),
+            ("next_ekadashi", data.next_ekadashi),
         ):
             element = cfg.get(key, {})
             self._text_cfg(draw, element, element.get("y", default_y), value)
@@ -337,27 +339,8 @@ class Renderer:
         if not text:
             return
 
-        max_width = int(cfg.get("max_width", 360))
         line_height = int(cfg.get("line_height", 20))
-        limit = int(cfg.get("max_y", 300)) - y
-        font_name = str(cfg.get("font") or DEFAULT_FONT)
-
-        # Custom text is free-form and admin-entered, so it can be arbitrarily
-        # long. Wrap first, then step the size down until it fits the remaining
-        # vertical space rather than drawing off-canvas where it is invisible.
-        size = font_size
-        min_size = int(cfg.get("min_font_size", 12))
-        while size >= min_size:
-            font = self.font(font_name, size)
-            lines = self._wrap(text, font, max_width)
-            if len(lines) * line_height <= limit:
-                break
-            size -= 2
-        else:
-            font = self.font(font_name, min_size)
-            lines = self._wrap(text, font, max_width)
-            lines = self._ellipsise(lines, font, max(limit // line_height, 1))
-
+        font, lines = fit_line4(self, cfg, text)
         for index, line in enumerate(lines):
             self._text(draw, x, y + index * line_height, line, font)
 
@@ -697,3 +680,87 @@ def render_day(
 ) -> bytes:
     """Convenience wrapper returning the raw 1-bit bitmap."""
     return Renderer(config, assets_dir).render(data)
+
+
+def line4_block_height(font: ImageFont.FreeTypeFont, lines: int, line_height: int) -> int:
+    """Vertical space the drawn block occupies, in pixels.
+
+    Lines are spaced by "line_height", but a line's glyphs occupy their own
+    ascent + descent, which is not the same number: Noto Sans at 20px has
+    metrics of 28 while the shipped "line_height" is 20. Counting only the line
+    boxes therefore under-states the block by the last line's descent and lets
+    it be drawn off the bottom of the canvas, where it is invisible.
+    """
+    ascent, descent = font.getmetrics()
+    return (lines - 1) * line_height + ascent + descent
+
+
+def fit_line4(
+    renderer: Renderer, cfg: dict, text: str
+) -> tuple[ImageFont.FreeTypeFont, list[str]]:
+    """Choose the font size and wrapped lines for the custom text.
+
+    The text is free-form — an admin's own note, or a festival name from the
+    source — so it can be arbitrarily long. Wrap it first, then step the size
+    down until the block fits the space left between "y" and "max_y" rather than
+    drawing off-canvas where it would be invisible.
+
+    Split out of :meth:`Renderer._draw_line4` so ``check_layout.py`` can measure
+    the block that is actually drawn instead of the raw string.
+    """
+    lines: list[str] = []
+    size = int(cfg.get("font_size", 20))
+    min_size = int(cfg.get("min_font_size", 12))
+    max_width = int(cfg.get("max_width", 360))
+    line_height = int(cfg.get("line_height", 20))
+    limit = int(cfg.get("max_y", 300)) - int(cfg.get("y", 258))
+    font_name = str(cfg.get("font") or DEFAULT_FONT)
+
+    while size >= min_size:
+        font = renderer.font(font_name, size)
+        lines = renderer._wrap(text, font, max_width)
+        if line4_block_height(font, len(lines), line_height) <= limit:
+            return font, lines
+        size -= 2
+
+    font = renderer.font(font_name, min_size)
+    lines = renderer._wrap(text, font, max_width)
+    return font, renderer._ellipsise(lines, font, max_line4_lines(font, cfg))
+
+
+def max_line4_lines(font: ImageFont.FreeTypeFont, cfg: dict) -> int:
+    """How many lines fit between "y" and "max_y" at this font's metrics."""
+    line_height = int(cfg.get("line_height", 20))
+    limit = int(cfg.get("max_y", 300)) - int(cfg.get("y", 258))
+    ascent, descent = font.getmetrics()
+    room = limit - (ascent + descent)
+    if room < 0:
+        return 0
+    return 1 + room // max(line_height, 1)
+
+
+def line4_box(
+    renderer: Renderer, cfg: dict, text: str
+) -> tuple[float, float, float, float] | None:
+    """Drawn box of the custom text, or None when it is switched off or empty.
+
+    The block is as wide as its longest line and as tall as the lines drawn plus
+    the spacing between them, measured the same way ``fit_line4`` fits them.
+    """
+    x = cfg.get("x", 20)
+    y = cfg.get("y", 258)
+    if is_hidden(x, y, cfg.get("font_size", 20)):
+        return None
+    stripped = (text or "").strip()
+    if not stripped:
+        return None
+
+    font, lines = fit_line4(renderer, cfg, stripped)
+    if not lines:
+        return None
+
+    advance = max(font.getlength(line) for line in lines)
+    line_height = int(cfg.get("line_height", 20))
+    top = float(y)
+    bottom = top + line4_block_height(font, len(lines), line_height)
+    return (float(x), top, float(x) + advance, bottom)
